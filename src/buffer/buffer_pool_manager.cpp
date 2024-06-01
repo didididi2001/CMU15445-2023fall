@@ -42,7 +42,6 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   {
     std::lock_guard<std::mutex> latch(latch_);
     frame_id_t frame_id;
-
     // 如果空闲列表中有可用的帧
     if (!free_list_.empty()) {
       // 从空闲列表中取出一个帧
@@ -254,18 +253,20 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
 
 auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
 
-auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this, this->FetchPage(page_id)}; }
+// auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this,
+// this->FetchPage(page_id)}; }
 
-auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
-  auto basic_guard = FetchPageBasic(page_id);
-  return basic_guard.UpgradeRead();
-}
+// auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
+//   auto basic_guard = FetchPageBasic(page_id);
+//   return basic_guard.UpgradeRead();
+// }
 
-auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
-  auto basic_guard = FetchPageBasic(page_id);
-  return basic_guard.UpgradeWrite();
-}
+// auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
+//   auto basic_guard = FetchPageBasic(page_id);
+//   return basic_guard.UpgradeWrite();
+// }
 
-auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, this->NewPage(page_id)}; }
+// auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, this->NewPage(page_id)};
+// }
 
 }  // namespace bustub

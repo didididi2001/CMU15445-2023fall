@@ -15,6 +15,7 @@
 #include <deque>
 #include <limits>
 #include <list>
+#include <memory>
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <utility>
@@ -34,14 +35,14 @@ class LRUKNode {
 
   std::deque<size_t> history_;
   size_t k_;
-  // frame_id_t frame_id_;
+  frame_id_t frame_id_;
   bool is_evictable_{false};
 
  public:
   // 构造函数
   LRUKNode() = default;
 
-  explicit LRUKNode(size_t k) : k_(k) {}
+  explicit LRUKNode(size_t k, frame_id_t frame_id) : k_(k), frame_id_(frame_id) {}
 
   // 判断是否可被驱逐
   auto IsEvictable() const -> bool { return is_evictable_; }
@@ -54,7 +55,12 @@ class LRUKNode {
   auto GetDistance() const -> std::pair<size_t, size_t>;
 
   auto GetHistory() -> std::deque<size_t> & { return history_; }
+  auto GetFrameId() -> frame_id_t { return frame_id_; }
   auto operator>(const LRUKNode &other) const -> bool;
+  auto operator<(const LRUKNode &other) const -> bool;
+  void ClearHistory() { history_.clear(); }
+  auto GetHistorySzie() -> size_t { return history_.size(); }
+  void PrintHistory() { ; }
 };
 
 /**
@@ -169,14 +175,23 @@ class LRUKReplacer {
   auto Size() -> size_t;
   auto CurSize() -> size_t;
 
+  void PrintList();
+
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  std::unordered_map<frame_id_t, LRUKNode> node_store_;
+  // std::unordered_map<frame_id_t, LRUKNode> node_store_;
+
+  std::unordered_map<frame_id_t, std::shared_ptr<LRUKNode>> new_node_store_;
   size_t current_timestamp_{0};
   size_t curr_size_{0};
   size_t replacer_size_{0};
   size_t k_;
+
+  // less than k
+  std::list<std::shared_ptr<LRUKNode>> l_list_;
+
+  std::list<std::shared_ptr<LRUKNode>> r_list_;
   std::mutex latch_;
 };
 
