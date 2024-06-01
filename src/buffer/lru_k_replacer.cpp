@@ -111,9 +111,6 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
       node_store_.erase(frame_id);
       return;  // 删除成功，直接返回
     }
-    // 如果当前节点不可被驱逐，抛出异常或中止进程
-    // throw std::runtime_error("Attempted to remove a non-evictable frame!");
-    // 或者使用 std::abort() 中止进程
   }
 }
 

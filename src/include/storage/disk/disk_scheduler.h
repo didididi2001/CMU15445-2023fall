@@ -1,3 +1,4 @@
+
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -12,13 +13,21 @@
 
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
+#include <cstddef>
 #include <future>  // NOLINT
+#include <mutex>
 #include <optional>
+#include <queue>
 #include <thread>  // NOLINT
+#include <type_traits>
+#include <utility>
 
 #include "common/channel.h"
 #include "storage/disk/disk_manager.h"
 
+#define CONCURRENT_IO
 namespace bustub {
 
 /**
@@ -49,10 +58,10 @@ struct DiskRequest {
  * maintains a background worker thread that processes the scheduled requests using the disk manager. The background
  * thread is created in the DiskScheduler constructor and joined in its destructor.
  */
-class DiskScheduler {
+class SingleThreadScheduler {
  public:
-  explicit DiskScheduler(DiskManager *disk_manager);
-  ~DiskScheduler();
+  explicit SingleThreadScheduler(DiskManager *disk_manager);
+  ~SingleThreadScheduler();
 
   /**
    * TODO(P1): Add implementation
@@ -81,7 +90,7 @@ class DiskScheduler {
    *
    * @return std::promise<bool>
    */
-  auto CreatePromise() -> DiskSchedulerPromise { return {}; };
+  auto CreatePromise() -> DiskSchedulerPromise { return {}; }
 
  private:
   /** Pointer to the disk manager. */
@@ -92,4 +101,30 @@ class DiskScheduler {
   /** The background thread responsible for issuing scheduled requests to the disk manager. */
   std::optional<std::thread> background_thread_;
 };
+class ConcurrentScheduler {
+ public:
+  explicit ConcurrentScheduler(DiskManager *disk_manager);
+  ~ConcurrentScheduler();
+
+  void Schedule(DiskRequest r);
+
+  void StartWorkerThread();
+
+  using DiskSchedulerPromise = std::promise<bool>;
+
+  auto CreatePromise() -> DiskSchedulerPromise { return {}; }
+
+ private:
+  DiskManager *disk_manager_ __attribute__((__unused__));
+  size_t thread_num_;
+  std::vector<std::thread> workers_;
+  std::queue<DiskRequest> request_queue_;
+  std::mutex queue_mtx_;
+  std::condition_variable condition_;
+
+  [[maybe_unused]] bool stop_{false};
+};
+
+// using DiskScheduler = SingleThreadScheduler;
+using DiskScheduler = ConcurrentScheduler;
 }  // namespace bustub

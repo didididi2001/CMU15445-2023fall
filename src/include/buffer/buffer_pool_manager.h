@@ -172,6 +172,9 @@ class BufferPoolManager {
    */
   auto DeletePage(page_id_t page_id) -> bool;
 
+  void FlushFrame(frame_id_t frame_id);
+  void ReadFrame(frame_id_t frame_id);
+
  private:
   /** Number of pages in the buffer pool. */
   const size_t pool_size_;
@@ -193,6 +196,7 @@ class BufferPoolManager {
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
   std::mutex latch_;
 
+  std::vector<std::pair<std::condition_variable, bool>> avaliable_;
   /**
    * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
    * @return the id of the allocated page
