@@ -182,7 +182,7 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   std::lock_guard lg(latch_);
   auto it = page_table_.find(page_id);
   if (it == page_table_.end()) {
-    return false;
+    return true;
   }
   auto frame_id = it->second;
   auto &page = pages_[frame_id];
