@@ -228,20 +228,20 @@ void BufferPoolManager::ReadFrame(frame_id_t frame_id) {
 
 auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
 
-// auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this,
-// this->FetchPage(page_id)}; }
+auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this,
+this->FetchPage(page_id)}; }
 
-// auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
-//   auto basic_guard = FetchPageBasic(page_id);
-//   return basic_guard.UpgradeRead();
-// }
+auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
+  auto basic_guard = FetchPageBasic(page_id);
+  return basic_guard.UpgradeRead();
+}
 
-// auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
-//   auto basic_guard = FetchPageBasic(page_id);
-//   return basic_guard.UpgradeWrite();
-// }
+auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
+  auto basic_guard = FetchPageBasic(page_id);
+  return basic_guard.UpgradeWrite();
+}
 
-// auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, this->NewPage(page_id)};
-// }
+auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, this->NewPage(page_id)};
+}
 
 }  // namespace bustub
