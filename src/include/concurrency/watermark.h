@@ -1,6 +1,6 @@
 #pragma once
 
-#include <unordered_map>
+#include <map>
 
 #include "concurrency/transaction.h"
 #include "storage/table/tuple.h"
@@ -29,12 +29,13 @@ class Watermark {
     }
     return watermark_;
   }
+  void UpdateWatermark();
 
   timestamp_t commit_ts_;
 
   timestamp_t watermark_;
 
-  std::unordered_map<timestamp_t, int> current_reads_;
+  std::map<timestamp_t, int> current_reads_;
 };
 
 };  // namespace bustub
