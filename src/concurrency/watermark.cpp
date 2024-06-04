@@ -29,8 +29,8 @@ auto Watermark::RemoveTxn(timestamp_t read_ts) -> void {
 void Watermark::UpdateWatermark() {
   if (current_reads_.empty()) {
     watermark_ = commit_ts_;
-    return ;
-  } 
+    return;
+  }
   watermark_ = current_reads_.begin()->first;
 }
 

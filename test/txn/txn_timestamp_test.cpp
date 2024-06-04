@@ -16,7 +16,7 @@
 
 namespace bustub {
 
-TEST(TxnTsTest, DISABLED_WatermarkPerformance) {  // NOLINT
+TEST(TxnTsTest, WatermarkPerformance) {  // NOLINT
   const int txn_n = 1000000;
   {
     auto watermark = Watermark(0);
