@@ -63,6 +63,37 @@ void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const Table
       "You see this line of text because you have not implemented `TxnMgrDbg`. You should do this once you have "
       "finished task 2. Implementing this helper function will save you a lot of time for debugging in later tasks.");
 
+  auto iter = table_heap->MakeIterator();
+  while (!iter.IsEnd()) {
+    auto rid = iter.GetRID();
+    auto tuple = iter.GetTuple();
+    fmt::println(stderr, "RID={}  ts=txn{} del marker = {} tuple={}", rid.ToString(), tuple.first.ts_,
+                 tuple.first.is_deleted_, tuple.second.ToString(&table_info->schema_));
+    auto undo_link = txn_mgr->GetUndoLink(rid);
+    if (undo_link.has_value()) {
+      auto undo_link_value = undo_link.value();
+
+      while (undo_link_value.IsValid()) {
+        auto undo_log = txn_mgr->GetUndoLog(undo_link_value);
+        std::vector<uint32_t> attrs;
+        std::string modified_fields_str = "";
+        for (size_t i = 0; i < undo_log.modified_fields_.size(); ++i) {
+          if (undo_log.modified_fields_[i]) {
+            attrs.emplace_back(i);
+            modified_fields_str += "1 ";
+          } else {
+            modified_fields_str += "0 ";
+          }
+        }
+        auto cur_schema = Schema::CopySchema(&table_info->schema_, attrs);
+        fmt::println(stderr, "  txn{}@{} tuple={} ,modified_fields_={} ts={}", undo_link_value.prev_txn_,
+                     undo_link_value.prev_log_idx_, undo_log.tuple_.ToString(&cur_schema), modified_fields_str,
+                     undo_log.ts_);
+        undo_link_value = undo_log.prev_version_;
+      }
+    }
+    ++iter;
+  }
   // We recommend implementing this function as traversing the table heap and print the version chain. An example output
   // of our reference solution:
   //
