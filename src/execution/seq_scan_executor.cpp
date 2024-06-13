@@ -54,15 +54,12 @@ void SeqScanExecutor::Init() {
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   TransactionManager *txn_mgr = exec_ctx_->GetTransactionManager();
   while (!table_iterator_->IsEnd()) {
+    // std::cout << "11111" << std::endl;
     auto tuplemeta = table_iterator_->GetTuple().first;
     *tuple = table_iterator_->GetTuple().second;
     *rid = table_iterator_->GetRID();
-    // std::cout << "\ntuplemeta.ts_:  " << tuplemeta.ts_ << std::endl;
-    // std::cout << "exec_ctx_->GetTransaction()->GetTransactionTempTs():  "
-              // << exec_ctx_->GetTransaction()->GetTransactionTempTs() << std::endl;
-    // std::cout << "exec_ctx_->GetTransaction()->GetReadTs():  " << exec_ctx_->GetTransaction()->GetReadTs() << std::endl;
     if (tuplemeta.ts_ == exec_ctx_->GetTransaction()->GetTransactionTempTs() ||
-        ((tuplemeta.ts_ >> 62) == 0 && tuplemeta.ts_ <= exec_ctx_->GetTransaction()->GetReadTs())) {
+        (tuplemeta.ts_ <= exec_ctx_->GetTransaction()->GetReadTs())) {
       if (tuplemeta.is_deleted_) {
         ++(*table_iterator_);
         continue;
@@ -78,41 +75,37 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       ++(*table_iterator_);
       return true;
     }
-    if ((tuplemeta.ts_ >> 62) == 1 ||
-        ((tuplemeta.ts_ >> 62) == 0 && tuplemeta.ts_ > exec_ctx_->GetTransaction()->GetReadTs())) {
-      // std::cout << "tuplemeta.ts_ >> 62) == 1 start " << std::endl;
-      auto undo_link = txn_mgr->GetUndoLink(*rid);
-      if (undo_link.has_value()) {
-        std::vector<UndoLog> undo_logs;
-        auto &undo_link_value = undo_link.value();
-        while (undo_link_value.IsValid()) {
-          auto undo_log = txn_mgr->GetUndoLog(undo_link_value);
-          // std::cout << "undo_log.ts_: " << undo_log.ts_ << std::endl;
-          undo_logs.emplace_back(undo_log);
-          if (undo_log.ts_ <= exec_ctx_->GetTransaction()->GetReadTs()) {
-            if (!undo_logs.empty()) {
-              auto new_tuple = ReconstructTuple(&GetOutputSchema(), *tuple, {2333, false}, undo_logs);
-              if (new_tuple.has_value()) {
-                *tuple = new_tuple.value();
-                if (plan_->filter_predicate_ != nullptr) {
-                  auto value = plan_->filter_predicate_->Evaluate(tuple, GetOutputSchema());
-                  if (value.IsNull() || !value.GetAs<bool>()) {
-                    ++(*table_iterator_);
-                    continue;
-                  }
+
+    // need reconstructTuple
+    auto undo_link = txn_mgr->GetUndoLink(*rid);
+    if (undo_link.has_value()) {
+      std::vector<UndoLog> undo_logs;
+      auto &undo_link_value = undo_link.value();
+      while (undo_link_value.IsValid()) {
+        auto undo_log = txn_mgr->GetUndoLog(undo_link_value);
+        // std::cout << "undo_log.ts_: " << undo_log.ts_ << std::endl;
+        undo_logs.emplace_back(undo_log);
+        if (undo_log.ts_ <= exec_ctx_->GetTransaction()->GetReadTs()) {
+          if (!undo_logs.empty()) {
+            auto new_tuple = ReconstructTuple(&GetOutputSchema(), *tuple, {2333, false}, undo_logs);
+            if (new_tuple.has_value()) {
+              *tuple = new_tuple.value();
+              if (plan_->filter_predicate_ != nullptr) {
+                auto value = plan_->filter_predicate_->Evaluate(tuple, GetOutputSchema());
+                if (value.IsNull() || !value.GetAs<bool>()) {
+                  break;
                 }
-                ++(*table_iterator_);
-                return true;
               }
+              ++(*table_iterator_);
+              return true;
             }
-            break;
           }
-          undo_link_value = undo_log.prev_version_;
+          break;
         }
+        undo_link_value = undo_log.prev_version_;
       }
-      // std::cout << "tuplemeta.ts_ >> 62) == 1 end " << std::endl;
-      ++(*table_iterator_);
     }
+    ++(*table_iterator_);
   }
   tuple = nullptr;
   rid = nullptr;

@@ -16,6 +16,11 @@ auto ReconstructTuple(const Schema *schema, const Tuple &base_tuple, const Tuple
 void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,
                TableHeap *table_heap);
 
+auto UnionUndoLog(UndoLog &old_undo_log, UndoLog &new_undo_log, Schema &base_schema) -> void;
+auto UpdateUodoLog(TupleMeta &meta, Transaction *transaction, TransactionManager *txn_mgr, Tuple &undo_tuple,
+                   RID &undo_rid, std::vector<bool> &modified_fields, TableInfo *table_info) -> void;
+
+auto LockRID(RID rid, TransactionManager *txn_mgr) -> bool;
 // Add new functions as needed... You are likely need to define some more functions.
 //
 // To give you a sense of what can be shared across executors / transaction manager, here are the

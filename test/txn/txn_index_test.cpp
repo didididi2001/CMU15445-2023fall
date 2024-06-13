@@ -14,7 +14,7 @@ namespace bustub {
 
 // NOLINTBEGIN(bugprone-unchecked-optional-access)
 
-TEST(TxnIndexTest, DISABLED_IndexInsertTest) {  // NOLINT
+TEST(TxnIndexTest, IndexInsertTest) {  // NOLINT
   auto bustub = std::make_unique<BustubInstance>();
   const std::string query = "SELECT * FROM maintable";
 
@@ -83,7 +83,7 @@ TEST(TxnIndexTest, DISABLED_IndexInsertTest) {  // NOLINT
                                 }));
 }
 
-TEST(TxnIndexTest, DISABLED_InsertDeleteTest) {  // NOLINT
+TEST(TxnIndexTest, InsertDeleteTest) {  // NOLINT
   const std::string query = "SELECT * FROM maintable";
 
   auto bustub = std::make_unique<BustubInstance>();
@@ -111,11 +111,12 @@ TEST(TxnIndexTest, DISABLED_InsertDeleteTest) {  // NOLINT
   // hidden tests in-between
 
   WithTxn(txn1_reverify, QueryShowResult(*bustub, _var, _txn, query, IntResult{{1, 0}, {2, 0}, {3, 0}, {4, 0}}));
+  WithTxn(txn1_reverify, QueryShowResult(*bustub, _var, _txn, "SELECT * FROM maintable where col1 = 1", IntResult{{1, 0}}));
   WithTxn(txn1_reverify, QueryIndex(*bustub, _var, _txn, query, "col1", std::vector<int>{1, 2, 3, 4},
                                     IntResult{{1, 0}, {2, 0}, {3, 0}, {4, 0}}));
 }
 
-TEST(TxnIndexTest, DISABLED_UpdateTest) {  // NOLINT
+TEST(TxnIndexTest, UpdateTest) {  // NOLINT
   const std::string query = "SELECT * FROM maintable";
 
   const auto prepare =
@@ -144,11 +145,13 @@ TEST(TxnIndexTest, DISABLED_UpdateTest) {  // NOLINT
   const auto reverify = [](std::unique_ptr<BustubInstance> &bustub, Transaction *txn1_reverify,
                            Transaction *txn2_reverify, const std::string &query) {
     WithTxn(txn1_reverify, QueryShowResult(*bustub, _var, _txn, query, IntResult{{1, 0}, {2, 0}}));
-    WithTxn(txn1_reverify, QueryIndex(*bustub, _var, _txn, query, "col1", std::vector<int>{1, 2, 3, 4, 5, 6},
-                                      IntResult{{1, 0}, {2, 0}, {}, {}, {}, {}}));
     WithTxn(txn2_reverify, QueryShowResult(*bustub, _var, _txn, query, IntResult{{1, 0}, {5, 0}}));
     WithTxn(txn2_reverify, QueryIndex(*bustub, _var, _txn, query, "col1", std::vector<int>{1, 2, 3, 4, 5, 6},
                                       IntResult{{1, 0}, {}, {}, {}, {5, 0}, {}}));
+    WithTxn(txn1_reverify, QueryIndex(*bustub, _var, _txn, query, "col1", std::vector<int>{1, 2, 3, 4, 5, 6},
+                                      IntResult{{1, 0}, {2, 0}, {}, {}, {}, {}}));
+    
+    
   };
 
   {
@@ -212,7 +215,7 @@ TEST(TxnIndexTest, DISABLED_UpdateTest) {  // NOLINT
   // hidden tests...
 }
 
-TEST(GradingTxnIndexTest, DISABLED_IndexUpdateConflictTest) {  // NOLINT
+TEST(GradingTxnIndexTest, IndexUpdateConflictTest) {  // NOLINT
   const std::string query = "SELECT * FROM maintable";
 
   auto bustub = std::make_unique<BustubInstance>();
@@ -236,7 +239,7 @@ TEST(GradingTxnIndexTest, DISABLED_IndexUpdateConflictTest) {  // NOLINT
   // hidden tests...
 }
 
-TEST(TxnIndexTest, DISABLED_UpdatePrimaryKeyTest) {  // NOLINT
+TEST(TxnIndexTest, UpdatePrimaryKeyTest) {  // NOLINT
   const std::string query = "SELECT * FROM maintable";
 
   auto bustub = std::make_unique<BustubInstance>();
@@ -252,6 +255,7 @@ TEST(TxnIndexTest, DISABLED_UpdatePrimaryKeyTest) {  // NOLINT
   TxnMgrDbg("after txn1 insert", bustub->txn_manager_.get(), table_info, table_info->table_.get());
   auto txn2 = BeginTxn(*bustub, "txn2");
   WithTxn(txn2, ExecuteTxn(*bustub, _var, _txn, "UPDATE maintable SET col1 = col1 + 1"));
+  TxnMgrDbg("after txn2 update", bustub->txn_manager_.get(), table_info, table_info->table_.get());
   WithTxn(txn2, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2, 0}, {3, 0}, {4, 0}, {5, 0}}));
   WithTxn(txn2, QueryIndex(*bustub, _var, _txn, query, "col1", std::vector<int>{1, 2, 3, 4, 5},
                            IntResult{{}, {2, 0}, {3, 0}, {4, 0}, {5, 0}}));

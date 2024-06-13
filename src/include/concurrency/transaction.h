@@ -70,7 +70,7 @@ struct UndoLink {
   auto IsValid() const -> bool { return prev_txn_ != INVALID_TXN_ID; }
 };
 
-struct  UndoLog {
+struct UndoLog {
   /* Whether this log is a deletion marker */
   bool is_deleted_;
   /* The fields modified by this undo log */

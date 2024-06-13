@@ -10,15 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 #include "execution/executors/index_scan_executor.h"
+#include "concurrency/transaction_manager.h"
+#include "execution/execution_common.h"
 
 namespace bustub {
 IndexScanExecutor::IndexScanExecutor(ExecutorContext *exec_ctx, const IndexScanPlanNode *plan)
     : AbstractExecutor(exec_ctx), plan_(plan) {}
 
 void IndexScanExecutor::Init() {
+  // std::cout << "index scan" << std::endl;
   auto catalog = exec_ctx_->GetCatalog();
   auto index_oid = plan_->GetIndexOid();
   auto index_info = catalog->GetIndex(index_oid);
+  TransactionManager *txn_mgr = exec_ctx_->GetTransactionManager();
   if (index_info == Catalog::NULL_INDEX_INFO) {
     std::cout << "can't find plan's index_info" << std::endl;
   }
@@ -34,9 +38,52 @@ void IndexScanExecutor::Init() {
   index_info->index_->ScanKey(key, &out_rid_, exec_ctx_->GetTransaction());
   for (const auto &id : out_rid_) {
     auto tuple_meta = catalog->GetTable(plan_->table_oid_)->table_->GetTuple(id);
-    if (!tuple_meta.first.is_deleted_) {
+    auto &meta = tuple_meta.first;
+    auto &tuple = tuple_meta.second;
+    // std::cout << tuple.ToString(&GetOutputSchema()) << std::endl;
+    if (meta.ts_ == exec_ctx_->GetTransaction()->GetTransactionTempTs() ||
+        (meta.ts_ <= exec_ctx_->GetTransaction()->GetReadTs())) {
+      if (meta.is_deleted_) {
+        continue;
+      }
+      // 如果存在过滤条件，进行评估
+      if (plan_->filter_predicate_ != nullptr) {
+        auto value = plan_->filter_predicate_->Evaluate(&tuple, GetOutputSchema());
+        if (value.IsNull() || !value.GetAs<bool>()) {
+          continue;
+        }
+      }
       out_tuple_.push_back(tuple_meta.second);
       out_rid_.push_back(id);
+      continue;
+    }
+    auto undo_link = txn_mgr->GetUndoLink(id);
+    if (undo_link.has_value()) {
+      std::vector<UndoLog> undo_logs;
+      auto &undo_link_value = undo_link.value();
+      while (undo_link_value.IsValid()) {
+        auto undo_log = txn_mgr->GetUndoLog(undo_link_value);
+        // std::cout << "undo_log.ts_: " << undo_log.ts_ << std::endl;
+        undo_logs.emplace_back(undo_log);
+        if (undo_log.ts_ <= exec_ctx_->GetTransaction()->GetReadTs()) {
+          if (!undo_logs.empty()) {
+            auto new_tuple = ReconstructTuple(&GetOutputSchema(), tuple, {2333, false}, undo_logs);
+            if (new_tuple.has_value()) {
+              if (plan_->filter_predicate_ != nullptr) {
+                auto value = plan_->filter_predicate_->Evaluate(&new_tuple.value(), GetOutputSchema());
+                if (value.IsNull() || !value.GetAs<bool>()) {
+                  break;
+                }
+              }
+              out_tuple_.push_back(new_tuple.value());
+              out_rid_.push_back(id);
+              break;
+            }
+          }
+          break;
+        }
+        undo_link_value = undo_log.prev_version_;
+      }
     }
   }
 }
