@@ -8,6 +8,8 @@
 #include "type/value.h"
 #include "type/value_factory.h"
 
+#include <algorithm>
+
 namespace bustub {
 
 auto ReconstructTuple(const Schema *schema, const Tuple &base_tuple, const TupleMeta &base_meta,
@@ -73,22 +75,25 @@ void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const Table
         if (txn_mgr->txn_map_.find(undo_link_value.prev_txn_) == txn_mgr->txn_map_.end()) {
           break;
         }
-        auto undo_log = txn_mgr->GetUndoLog(undo_link_value);
-        std::vector<uint32_t> attrs;
-        std::string modified_fields_str;
-        for (size_t i = 0; i < undo_log.modified_fields_.size(); ++i) {
-          if (undo_log.modified_fields_[i]) {
-            attrs.emplace_back(i);
-            modified_fields_str += "1 ";
-          } else {
-            modified_fields_str += "0 ";
+        auto undo_log_optional = txn_mgr->GetUndoLogOptional(undo_link_value);
+        if (undo_log_optional.has_value()) {
+          auto undo_log = undo_log_optional.value();
+          std::vector<uint32_t> attrs;
+          std::string modified_fields_str;
+          for (size_t i = 0; i < undo_log.modified_fields_.size(); ++i) {
+            if (undo_log.modified_fields_[i]) {
+              attrs.emplace_back(i);
+              modified_fields_str += "1 ";
+            } else {
+              modified_fields_str += "0 ";
+            }
           }
+          auto cur_schema = Schema::CopySchema(&table_info->schema_, attrs);
+          fmt::println(stderr, "  txn{}@{} tuple={} , is_delete={} ,modified_fields_={} ts={}",
+                       undo_link_value.prev_txn_, undo_link_value.prev_log_idx_, undo_log.tuple_.ToString(&cur_schema),
+                       undo_log.is_deleted_, modified_fields_str, undo_log.ts_);
+          undo_link_value = undo_log.prev_version_;
         }
-        auto cur_schema = Schema::CopySchema(&table_info->schema_, attrs);
-        fmt::println(stderr, "  txn{}@{} tuple={} , is_delete={} ,modified_fields_={} ts={}", undo_link_value.prev_txn_,
-                     undo_link_value.prev_log_idx_, undo_log.tuple_.ToString(&cur_schema), undo_log.is_deleted_,
-                     modified_fields_str, undo_log.ts_);
-        undo_link_value = undo_log.prev_version_;
       }
     }
     ++iter;
@@ -111,7 +116,7 @@ void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const Table
 
 auto UnionUndoLog(UndoLog &old_undo_log, UndoLog &new_undo_log, Schema &base_schema) -> void {
   // 获取被修改字段的数量
-  size_t modified_fields_count = old_undo_log.modified_fields_.size();
+  size_t modified_fields_count = std::min(old_undo_log.modified_fields_.size(), new_undo_log.modified_fields_.size());
 
   // 定义存储属性和值的向量
   std::vector<uint32_t> combined_attrs;
@@ -164,7 +169,7 @@ auto UpdateUodoLog(TupleMeta &meta, Transaction *transaction, TransactionManager
       undo_link = transaction->AppendUndoLog({meta.is_deleted_, modified_fields, undo_tuple, meta.ts_, {}});
     }
     // std::cout << undo_link.prev_txn_ << " " << undo_link.prev_log_idx_ << std::endl;
-    txn_mgr->UpdateUndoLink(undo_rid, undo_link, nullptr);
+    txn_mgr->UpdateVersionLink(undo_rid, VersionUndoLink{undo_link, true}, nullptr);
   } else {
     auto undo_link = txn_mgr->GetUndoLink(undo_rid);
     if (undo_link.has_value()) {

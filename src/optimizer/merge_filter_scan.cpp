@@ -28,6 +28,7 @@ auto Optimizer::OptimizeMergeFilterScan(const AbstractPlanNodeRef &plan) -> Abst
         return std::make_shared<SeqScanPlanNode>(filter_plan.output_schema_, seq_scan_plan.table_oid_,
                                                  seq_scan_plan.table_name_, filter_plan.GetPredicate());
       }
+      
     }
   }
 

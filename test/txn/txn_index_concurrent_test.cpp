@@ -25,7 +25,7 @@ TEST(TxnIndexTest, IndexConcurrentInsertTest) {  // NOLINT
     auto bustub = std::make_unique<BustubInstance>();
     Execute(*bustub, "CREATE TABLE maintable(a int primary key, b int)");
     std::vector<std::thread> insert_threads;
-    const int thread_cnt = 8;
+    const int thread_cnt = 59;
     const int number_cnt = 80;
     insert_threads.reserve(thread_cnt);
     std::map<int, std::vector<bool>> operation_result;
@@ -96,7 +96,7 @@ TEST(TxnIndexTest, IndexConcurrentInsertTest) {  // NOLINT
   }
 }
 
-TEST(TxnIndexTest, DISABLED_IndexConcurrentUpdateTest) {  // NOLINT
+TEST(TxnIndexTest, IndexConcurrentUpdateTest) {  // NOLINT
   const auto generate_sql = [](int thread_id, int n) -> std::string {
     return fmt::format("UPDATE maintable SET b = b + {} WHERE a = {}", (1 << thread_id), n);
   };

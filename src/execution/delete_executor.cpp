@@ -64,15 +64,29 @@ auto DeleteExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     while (child_executor_->Next(&delete_tuple, &delete_rid)) {
       // update table;
       // std::cout << delete_tuple.ToString(&table_info->schema_) << std::endl;
+      if (!LockRID(delete_rid, txn_mgr)) {
+        auto &write_set = transaction->GetWriteSets();
+        auto it = write_set.find(table_oid);
+        if (it == write_set.end() || it->second.find(delete_rid) == it->second.end()) {
+          // need abort;
+          is_done_ = true;            // 标记插入完成
+          transaction->SetTainted();  // 设置事务状态为TAINTED
+          throw ExecutionException("add lock fail and the lock holder is not this txn");  // 抛出异常
+          return false;
+        }
+      }
       auto tuple_meta = table->GetTuple(delete_rid);
       auto &meta = tuple_meta.first;
       // auto &old_tuple = tuple_meta.second;
       if (meta.ts_ > transaction->GetReadTs() && meta.ts_ != transaction->GetTransactionTempTs()) {
         // delete fail
         exec_ctx_->GetTransaction()->SetTainted();
-        throw ExecutionException("update execution fail");
+        auto version_link = txn_mgr->GetVersionLink(delete_rid);
+        txn_mgr->UpdateVersionLink(delete_rid, VersionUndoLink{version_link->prev_, false}, nullptr);
+        throw ExecutionException("delete execution fail");
         return false;
       }
+
       std::vector<bool> modified_fields(table_info->schema_.GetColumnCount(), true);
       UpdateUodoLog(meta, transaction, txn_mgr, delete_tuple, delete_rid, modified_fields, table_info);
       meta.ts_ = transaction->GetTransactionTempTs();

@@ -82,27 +82,30 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       std::vector<UndoLog> undo_logs;
       auto &undo_link_value = undo_link.value();
       while (undo_link_value.IsValid()) {
-        auto undo_log = txn_mgr->GetUndoLog(undo_link_value);
-        // std::cout << "undo_log.ts_: " << undo_log.ts_ << std::endl;
-        undo_logs.emplace_back(undo_log);
-        if (undo_log.ts_ <= exec_ctx_->GetTransaction()->GetReadTs()) {
-          if (!undo_logs.empty()) {
-            auto new_tuple = ReconstructTuple(&GetOutputSchema(), *tuple, {2333, false}, undo_logs);
-            if (new_tuple.has_value()) {
-              *tuple = new_tuple.value();
-              if (plan_->filter_predicate_ != nullptr) {
-                auto value = plan_->filter_predicate_->Evaluate(tuple, GetOutputSchema());
-                if (value.IsNull() || !value.GetAs<bool>()) {
-                  break;
+        auto undo_log_optional = txn_mgr->GetUndoLogOptional(undo_link_value);
+        if (undo_log_optional.has_value()) {
+          // std::cout << "undo_log.ts_: " << undo_log.ts_ << std::endl;
+          auto undo_log = undo_log_optional.value();
+          undo_logs.emplace_back(undo_log);
+          if (undo_log.ts_ <= exec_ctx_->GetTransaction()->GetReadTs()) {
+            if (!undo_logs.empty()) {
+              auto new_tuple = ReconstructTuple(&GetOutputSchema(), *tuple, {2333, false}, undo_logs);
+              if (new_tuple.has_value()) {
+                *tuple = new_tuple.value();
+                if (plan_->filter_predicate_ != nullptr) {
+                  auto value = plan_->filter_predicate_->Evaluate(tuple, GetOutputSchema());
+                  if (value.IsNull() || !value.GetAs<bool>()) {
+                    break;
+                  }
                 }
+                ++(*table_iterator_);
+                return true;
               }
-              ++(*table_iterator_);
-              return true;
             }
+            break;
           }
-          break;
+          undo_link_value = undo_log.prev_version_;
         }
-        undo_link_value = undo_log.prev_version_;
       }
     }
     ++(*table_iterator_);

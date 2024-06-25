@@ -348,7 +348,6 @@ class Catalog {
       BUSTUB_ASSERT((index != indexes_.end()), "Broken Invariant");
       indexes.push_back(index->second.get());
     }
-
     return indexes;
   }
 

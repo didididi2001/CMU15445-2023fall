@@ -55,7 +55,7 @@ auto TransactionManager::Commit(Transaction *txn) -> bool {
   std::unique_lock<std::mutex> commit_lck(commit_mutex_);
 
   // TODO(fall2023): acquire commit ts!
-
+  // std::cout << "txn:" << txn->GetTransactionId() << " commit \n";
   if (txn->state_ != TransactionState::RUNNING) {
     throw Exception("txn not in running state");
   }
@@ -70,10 +70,21 @@ auto TransactionManager::Commit(Transaction *txn) -> bool {
 
   // TODO(fall2023): Implement the commit logic!
   auto &write_sets = txn->GetWriteSets();
-  std::cout << "write_sets.size(): " << write_sets.size() << std::endl;
+  // std::cout << "write_sets.size(): " << write_sets.size() << std::endl;
   for (auto &it : write_sets) {
     auto table = catalog_->GetTable(it.first);
     for (auto &rid : it.second) {
+      auto version_link = GetVersionLink(rid);
+      if (version_link.has_value()) {
+        // std::cout << "in_progress_: " << version_link.value().in_progress_ << std::endl;
+        // std::cout << version_link.value().prev_.prev_txn_ << " " << txn->GetTransactionId() << std::endl;
+      }
+
+      if (version_link.has_value() && version_link.value().in_progress_ &&
+          (version_link.value().prev_.prev_txn_ == txn->GetTransactionId() || !version_link.value().prev_.IsValid())) {
+        // std::cout << "rid unlock: " << rid.ToString() << std::endl;
+        UpdateVersionLink(rid, VersionUndoLink{version_link.value().prev_, false}, nullptr);
+      }
       auto tuple_meta = table->table_->GetTuple(rid);
       auto meta = tuple_meta.first;
       auto &tuple = tuple_meta.second;
